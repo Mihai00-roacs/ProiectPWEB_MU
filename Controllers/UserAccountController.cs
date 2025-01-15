@@ -77,12 +77,6 @@ namespace ProiectPWEB_MU.Controllers
             {
                 return false;
             }
-        /*    if (!(await Service.CheckValidity(model.Email)))
-            {
-                ModelState.AddModelError("Email", "This account is not yet activated");
-                ModelState.AddModelError("Password", "This account is not yet activated");
-                return false;
-            }*/
             return true;
         }
         [HttpGet]
@@ -111,7 +105,7 @@ namespace ProiectPWEB_MU.Controllers
         {
             var twoFactorAuthenticator = new TwoFactorAuthenticator();
             var checkValidity = twoFactorAuthenticator.ValidateTwoFactorPIN(loginModel.Key, loginModel.InputCode);
-            if (loginModel == null || loginModel.Email == null || loginModel.Password==null)
+            if (loginModel.Email == null || loginModel.Password==null)
             {
                 return false;
             }
@@ -157,14 +151,14 @@ namespace ProiectPWEB_MU.Controllers
                     scheme: "SocializRCookies",
                     principal: principal);
         }
-        [HttpGet]
+        /*[HttpGet]
         [Authorize]
         public async Task<ActionResult> UserProfile(Guid id)
         {
             var model = await Service.GetUserProfileModel(id);
             return View(model);
-        }
-        [HttpGet]
+        }*/
+        /*[HttpGet]
         [Authorize]
         public async Task<ActionResult> EditUser(Guid id)
         {
@@ -176,8 +170,8 @@ namespace ProiectPWEB_MU.Controllers
                 return View("EditUser", model);
             }
             return View("AccessDenied");
-        }
-        [HttpPost]
+        }*/
+        /*[HttpPost]
         [Authorize]
         public async Task<IActionResult> EditUser(UserProfileModel model)
         {
@@ -213,7 +207,7 @@ namespace ProiectPWEB_MU.Controllers
             {
                 return View("AccessDenied");
             }
-        }
+        }*/
         private async Task LogOut() => await HttpContext.SignOutAsync(scheme: "SocializRCookies");
     }
 }

@@ -62,9 +62,6 @@ function NavMenu() {
                                     Cars</NavLink>
                             </NavItem>
                             <NavItem>
-                                <NavLink tag={Link} className="nav-link text-white" to="/offers">Your Profile</NavLink>
-                            </NavItem>
-                            <NavItem>
                                 <NavLink tag={Link} className="nav-link text-white" onClick={logout}>Logout</NavLink>
                             </NavItem>
                         </ul>

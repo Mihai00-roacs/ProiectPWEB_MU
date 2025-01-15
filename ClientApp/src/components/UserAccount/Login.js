@@ -44,28 +44,31 @@ function Login() {
         validateOnChange: false,
         validateOnMount: true,
         onSubmit: (values) => {
-            fetch('https://localhost:44417/useraccount/Login', {
+            fetch(`${process.env.REACT_APP_AUTH_API_URL}/Login`, {
                 method: 'POST',
                 headers: {
                     'Accept': 'application/json',
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(
-                    {
-                        Email: values.email,
-                        Password: values.password
+                body: JSON.stringify({
+                    Email: values.email,
+                    Password: values.password
+                })
+            })
+                .then(async res => {
+                    res = await res.json();
+                    if (res) {
+                        navigate("/login2factor", {
+                            state: {
+                                Email: values.email,
+                                Password: values.password
+                            }
+                        });
                     }
-                )
-            }).then(async res => {
-                res = await res.json();
-                if(res)
-                    navigate("/login2factor", {
-                        state: {
-                            Email: values.email,
-                            Password: values.password
-                        }
-                    })
-            });
+                })
+                .catch(err => {
+                    console.error("Error logging in:", err);
+                });
         },
     });
     return (

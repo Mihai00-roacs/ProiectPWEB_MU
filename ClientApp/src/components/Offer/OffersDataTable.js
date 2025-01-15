@@ -10,6 +10,7 @@ import {
     Tooltip,
 } from '@mui/material';
 import {Delete, Edit} from '@mui/icons-material';
+import {useAuth} from "../Authentication/Auth";
 
 const columns = [
     {
@@ -41,6 +42,7 @@ function OffersDataTable({setOffers,offersLink}) {
     const [columnFilters, setColumnFilters] = useState([]);
     const [globalFilter, setGlobalFilter] = useState();
     const [sorting, setSorting] = useState([]);
+    const {userId} = useAuth();
     const navigate = useNavigate();
     const {data, fetchNextPage, isError, isFetching, isLoading} =
         useInfiniteQuery({
@@ -49,8 +51,7 @@ function OffersDataTable({setOffers,offersLink}) {
                 const url = new URL(
                     "https://localhost:44417/offers/"+offersLink
                 );
-                url.searchParams.set('page', `${pageParam}`);
-                url.searchParams.set('size', `${fetchSize}`);
+                url.searchParams.set('userId', `${userId}`);
                 const response = await fetch(url.href);
                 const response_json = await response.json();
                 setOffers(current => [...current, ...response_json])

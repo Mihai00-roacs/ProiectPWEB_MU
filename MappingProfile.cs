@@ -10,8 +10,15 @@ namespace ProiectPWEB_MU
             CreateMap<User, CurrentUserDTO>();
             CreateMap<CurrentUserDTO, User>();
             CreateMap<RegisterModel, User>();
-            CreateMap<AddOfferModel, Offer>();
-            CreateMap<AddOfferModelWithPoints, Offer>();
+            CreateMap<AddOfferModel, Offer>()
+                .ForMember(a => a.Position, a => a.MapFrom(s => new Position()
+                {
+                    Xcoordinate = s.Xcoordinate,
+                    Ycoordinate = s.Ycoordinate,
+                    PositionId = Guid.NewGuid()
+                }))
+                .ForMember(a => a.OfferId, a => a.MapFrom(s => Guid.NewGuid()) );
+           // CreateMap<AddOfferModelWithPoints, Offer>();
             CreateMap<Offer, AddOfferModel>();
             CreateMap<Offer, OfferDetailsModel>()
                 .ForMember(a => a.ProducerName, a => a.MapFrom(s => s.Producer.ProducerName))

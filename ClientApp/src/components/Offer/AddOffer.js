@@ -1,117 +1,84 @@
-import React, {useEffect, useMemo, useState} from "react";
-import {Button, Col, Form, FormGroup} from 'reactstrap';
+import React, { useEffect, useState } from "react";
+import { Button, Form, FormGroup } from "reactstrap";
+import { FormikProvider, useFormik } from "formik";
+import * as yup from "yup";
+import {
+    FormControl,
+    InputAdornment,
+    InputLabel,
+    ListSubheader,
+    MenuItem,
+    Select,
+    TextField,
+    Typography,
+    Box,
+    Grid,
+    Card,
+    CardContent,
+    CardActions,
+} from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
-import {FormikProvider, useFormik} from 'formik';
-import * as yup from 'yup';
-import {FormControl, InputAdornment, InputLabel, ListSubheader, MenuItem, Select, TextField} from "@mui/material";
-import {useNavigate} from "react-router-dom";
-import debounce from 'lodash/debounce';
+import { useNavigate } from "react-router-dom";
 import TextInputLiveFeedback from "../utils/TextInputLiveFeedback";
 
 const validationSchema = yup.object({
-    year: yup
-        .number('Year must be a number')
-        .required('Year is required'),
-    milleage: yup
-        .number('Milleage must be a number')
-        .required('Milleage is required'),
-    description: yup
-        .string()
-        .required('Description is required'),
+    year: yup.number("Year must be a number").required("Year is required"),
+    milleage: yup.number("Milleage must be a number").required("Milleage is required"),
+    description: yup.string().required("Description is required"),
 });
 
 function AddOffer() {
-    const [producerId, setProducer] = React.useState(0);
+    const [producerId, setProducer] = useState(0);
     const [producerText, setProducerText] = useState("");
-    const [sizeId, setSize] = React.useState(0);
+    const [sizeId, setSize] = useState(0);
     const [sizeText, setSizeText] = useState("");
-    const [colorId, setColor] = React.useState(0);
+    const [colorId, setColor] = useState(0);
     const [colorText, setColorText] = useState("");
-    const [typeId, setType] = React.useState(0);
+    const [typeId, setType] = useState(0);
     const [typeText, setTypeText] = useState("");
-    const getProducers = async (search) => {
-        if (search !== "") {
-            let producersData = await fetch('https://localhost:44417/offers/producers?search=' + search);
-            return await producersData.json();
-        }
-    }
-    const getSizes = async () => {
-        let sizesData = await fetch('https://localhost:44417/offers/sizes');
-        return await sizesData.json();
-    }
-    const getColors = async (search) => {
-        if (search !== "") {
-            let colorsData = await fetch('https://localhost:44417/offers/colors?search=' + search);
-            return await colorsData.json();
-        }
-    }
-    const getTypes = async (search) => {
-        if (search !== "") {
-            let typesData = await fetch('https://localhost:44417/offers/types?search=' + search);
-            return await typesData.json();
-        }
-    }
-    const [displayProducers, setdisplayProducers] = useState([])
-    const [displaySizes, setdisplaySizes] = useState([])
-    const [displayColors, setdisplayColors] = useState([])
-    const [displayTypes, setdisplayTypes] = useState([])
+
+    const [displayProducers, setDisplayProducers] = useState([]);
+    const [displaySizes, setDisplaySizes] = useState([]);
+    const [displayColors, setDisplayColors] = useState([]);
+    const [displayTypes, setDisplayTypes] = useState([]);
 
     useEffect(() => {
-        async function fetchData() {
-            let producers = await getProducers(producerText);
-            if (producers !== undefined) {
-                producers = producers.map(result => ({
-                    value: result.value,
-                    text: result.text
-                }));
-                setdisplayProducers(producers);
+        async function fetchProducers() {
+            if (producerText !== "") {
+                const producersData = await fetch(
+                    `https://localhost:44417/offers/producers?search=${producerText}`
+                );
+                const producers = await producersData.json();
+                setDisplayProducers(
+                    producers.map((item) => ({ value: item.value, text: item.text }))
+                );
             }
         }
-
-        fetchData();
+        fetchProducers();
     }, [producerText]);
 
     useEffect(() => {
-        async function fetchData() {
-            let sizes = await getSizes();
-            if (sizes !== undefined) {
-                sizes = sizes.map(result => ({
-                    value: result.value,
-                    text: result.text
-                }));
-                setdisplaySizes(sizes);
-            }
+        async function fetchSizes() {
+            const sizesData = await fetch("https://localhost:44417/offers/sizes");
+            const sizes = await sizesData.json();
+            setDisplaySizes(sizes.map((item) => ({ value: item.value, text: item.text })));
         }
-
-        fetchData();
+        fetchSizes();
     }, []);
+
     useEffect(() => {
-        async function fetchData() {
-            let types = await getTypes(typeText);
-            if (types !== undefined) {
-                types = types.map(result => ({
-                    value: result.value,
-                    text: result.text
-                }));
-                setdisplayTypes(types);
+        async function fetchColors() {
+            if (colorText !== "") {
+                const colorsData = await fetch(
+                    `https://localhost:44417/offers/colors?search=${colorText}`
+                );
+                const colors = await colorsData.json();
+                setDisplayColors(
+                    colors.map((item) => ({ value: item.value, text: item.text }))
+                );
             }
         }
-
-        fetchData();
-    }, [typeText]);
-    useEffect(() => {
-        async function fetchData() {
-            let colors = await getColors(colorText);
-            if (colors !== undefined) {
-                colors = colors.map(result => ({
-                    value: result.value,
-                    text: result.text
-                }));
-                setdisplayColors(colors);
-            }
-        }
-
-        fetchData();
+        fetchColors();
     }, [colorText]);
     const handleProducerChange = (event) => {
         setProducer(event.target.value);
@@ -125,16 +92,30 @@ function AddOffer() {
     const handleTypeChange = (event) => {
         setType(event.target.value);
     };
+    useEffect(() => {
+        async function fetchTypes() {
+            if (typeText !== "") {
+                const typesData = await fetch(
+                    `https://localhost:44417/offers/types?search=${typeText}`
+                );
+                const types = await typesData.json();
+                setDisplayTypes(
+                    types.map((item) => ({ value: item.value, text: item.text }))
+                );
+            }
+        }
+        fetchTypes();
+    }, [typeText]);
+
     const navigate = useNavigate();
+
     const formik = useFormik({
         initialValues: {
-            year: '',
-            milleage: '',
-            description: ''
+            year: "",
+            milleage: "",
+            description: "",
         },
-        validationSchema: validationSchema,
-        validateOnChange: false,
-        validateOnMount: true,
+        validationSchema,
         onSubmit: (values) => {
             navigate("/offer-points", {
                 state: {
@@ -144,61 +125,58 @@ function AddOffer() {
                     ColorId: colorId,
                     Description: values.description,
                     TypeId: typeId,
-                    ProducerId: producerId
-                }
-            })
+                    ProducerId: producerId,
+                },
+            });
         },
     });
-    const debouncedValidate = useMemo(
-        () => debounce(formik.validateForm, 500),
-        [formik.validateForm],
-    );
 
-    useEffect(
-        () => {
-            debouncedValidate(formik.values);
-        },
-        [formik.values, debouncedValidate],
-    );
     return (
-        <>
-            <h2 style={{textAlign: 'center'}}>Welcome to CarSharing!</h2>
-            <hr/>
-            <h5 style={{textAlign: 'center'}}>Add Offer</h5>
-            <div className="row">
-                <Col md={4}>
+        <Box sx={{ p: 4 }}>
+            <Typography variant="h4" align="center" gutterBottom>
+                Welcome to CarSharing!
+            </Typography>
+            <Card sx={{ maxWidth: 600, mx: "auto", p: 3 }}>
+                <CardContent>
+                    <Typography variant="h5" align="center" gutterBottom>
+                        Add Offer
+                    </Typography>
                     <FormikProvider value={formik}>
                         <Form onSubmit={formik.handleSubmit}>
-                            <TextInputLiveFeedback
-                                label="Year"
-                                id="year"
-                                name="year"
-                                onChange={formik.handleChange}
-                                error={formik.touched.year && Boolean(formik.errors.year)}
-                                helpertext={formik.touched.year && formik.errors.year}
-                                type="text"
-                                variant="text"
-                            />
-                            <TextInputLiveFeedback
-                                id="milleage"
-                                name="milleage"
-                                label="Milleage"
-                                onChange={formik.handleChange}
-                                error={formik.touched.milleage && Boolean(formik.errors.milleage)}
-                                helpertext={formik.touched.milleage && formik.errors.milleage}
-                                type="text"
-                                variant="text"
-                            />
-                            <TextInputLiveFeedback
-                                id="description"
-                                name="description"
-                                label="Description"
-                                onChange={formik.handleChange}
-                                error={formik.touched.description && Boolean(formik.errors.description)}
-                                helpertext={formik.touched.description && formik.errors.description}
-                                type="text"
-                                variant="text"
-                            />
+                            <Grid container spacing={2}>
+                                <Grid item xs={12}>
+                                    <TextInputLiveFeedback
+                                        label="Year"
+                                        id="year"
+                                        name="year"
+                                        onChange={formik.handleChange}
+                                        error={formik.touched.year && Boolean(formik.errors.year)}
+                                        helpertext={formik.touched.year && formik.errors.year}
+                                        type="text"
+                                    />
+                                </Grid>
+                                <Grid item xs={12}>
+                                    <TextInputLiveFeedback
+                                        label="Milleage"
+                                        id="milleage"
+                                        name="milleage"
+                                        onChange={formik.handleChange}
+                                        error={formik.touched.milleage && Boolean(formik.errors.milleage)}
+                                        helpertext={formik.touched.milleage && formik.errors.milleage}
+                                        type="text"
+                                    />
+                                </Grid>
+                                <Grid item xs={12}>
+                                    <TextInputLiveFeedback
+                                        label="Description"
+                                        id="description"
+                                        name="description"
+                                        onChange={formik.handleChange}
+                                        error={formik.touched.description && Boolean(formik.errors.description)}
+                                        helpertext={formik.touched.description && formik.errors.description}
+                                        type="text"
+                                    />
+                                </Grid>
                             <FormGroup className="form-group">
                                 <FormControl fullWidth>
                                     <InputLabel id="producer-select-label">Producer</InputLabel>
@@ -367,16 +345,17 @@ function AddOffer() {
                                 </FormControl>
                                 <span className="text-danger"></span>
                             </FormGroup>
-                            <div className="buttonHolder">
-                                <Button variant="primary" type="submit">
-                                    Sign Up
+                            </Grid>
+                            <CardActions sx={{ justifyContent: "center" }}>
+                                <Button variant="contained" color="primary" type="submit">
+                                    Submit Offer
                                 </Button>
-                            </div>
+                            </CardActions>
                         </Form>
                     </FormikProvider>
-                </Col>
-            </div>
-        </>
+                </CardContent>
+            </Card>
+        </Box>
     );
 }
 

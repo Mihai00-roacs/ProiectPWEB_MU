@@ -2,9 +2,11 @@ import React, {useEffect, useRef, useState} from "react";
 import {useLocation, useNavigate} from "react-router-dom";
 import mapboxgl from "mapbox-gl";
 import {Button} from "reactstrap";
+import {useAuth} from "../Authentication/Auth";
 
 function AddOfferPoints() {
     const {state} = useLocation();
+    const {userId} = useAuth();
     const {Year, Milleage, SizeId,ColorId,Description,TypeId,ProducerId} = state;
     const map = useRef(null);
     const mapContainer = useRef(null);
@@ -79,7 +81,8 @@ function AddOfferPoints() {
                         ColorId: ColorId,
                         Description: Description,
                         TypeId: TypeId,
-                        ProducerId: ProducerId
+                        ProducerId: ProducerId,
+                        OwnerId: userId
                     }
                 )
             }).then(async res => {

@@ -1,9 +1,9 @@
-import React, {useEffect, useState} from "react";
-import {useLocation, useNavigate} from "react-router-dom";
-import {FormikProvider, useFormik} from "formik";
-import {Button, Col, Form, FormGroup} from "reactstrap";
+import React, { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { FormikProvider, useFormik } from "formik";
+import { Button, Col, Form, FormGroup } from "reactstrap";
 import TextInputLiveFeedback from "../utils/TextInputLiveFeedback";
-import {Box, FormControl} from "@mui/material";
+import { Box, FormControl } from "@mui/material";
 import * as yup from "yup";
 
 const validationSchema = yup.object({
@@ -13,21 +13,28 @@ const validationSchema = yup.object({
 });
 
 function LoginWith2Factor() {
-    const {state} = useLocation();
-    const {Email, Password} = state;
+    const { state } = useLocation();
+    const { Email, Password } = state;
     const [img, setImg] = useState('');
     const [key, setKey] = useState('');
+    const navigate = useNavigate();
+
     useEffect(() => {
         async function fetchImage() {
-            const res = await fetch('https://localhost:44417/useraccount/GetImage?Email=' + Email);
-            const imageModel = await res.json();
-            setImg(imageModel.barcodeImageUrl);
-            setKey(imageModel.key)
+            try {
+                const res = await fetch(`${process.env.REACT_APP_AUTH_API_URL}/GetImage?Email=${Email}`);
+                if (!res.ok) throw new Error("Failed to fetch image");
+                const imageModel = await res.json();
+                setImg(imageModel.barcodeImageUrl);
+                setKey(imageModel.key);
+            } catch (error) {
+                console.error("Error fetching image:", error);
+            }
         }
 
         fetchImage();
     }, [Email]);
-    const navigate = useNavigate();
+
     const formik = useFormik({
         initialValues: {
             inputCode: ''
@@ -36,28 +43,34 @@ function LoginWith2Factor() {
         validateOnChange: false,
         validateOnMount: true,
         enableReinitialize: true,
-        onSubmit: (values) => {
-            fetch('https://localhost:44417/useraccount/Login2FactorPost', {
-                method: 'POST',
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(
-                    {
+        onSubmit: async (values) => {
+            try {
+                const res = await fetch(`${process.env.REACT_APP_AUTH_API_URL}/Login2FactorPost`, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
                         Email: Email,
                         Password: Password,
                         Key: key,
                         InputCode: values.inputCode
-                    }
-                )
-            }).then(async res => {
-                res= await res.json();
-                if(res)
-                    navigate("/home")
-            });
+                    })
+                });
+                if(res.ok) {
+                    const {token} = await res.json();
+
+                    // Salvăm token-ul JWT în localStorage
+                    localStorage.setItem("jwtToken", token);
+                    navigate("/home");
+                }
+            } catch (error) {
+                console.error("Error during login:", error);
+            }
         },
     });
+
     return (
         <div className="row">
             <Col md={4}>
@@ -72,13 +85,13 @@ function LoginWith2Factor() {
                                         height: '300px',
                                         justifyContent: 'center',
                                     }}
-                                    alt="Cod QR Smecher."
+                                    alt="QR Code."
                                     src={img}
                                 />
                             </FormControl>
                         </FormGroup>
                         <TextInputLiveFeedback
-                            label="InputCode"
+                            label="Input Code"
                             id="inputCode"
                             name="inputCode"
                             onChange={formik.handleChange}

@@ -1,114 +1,134 @@
-﻿using BusinessLogic.Services;
-using DataAccess.Models;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cors;
-using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using DataAccess.Models;
 
 namespace ProiectPWEB_MU.Controllers
 {
     [Route("requests")]
     [ApiController]
-    [Authorize]
     [EnableCors("ReactPolicy")]
     public class RequestController : BaseController
     {
-        private readonly RequestService Service;
-        private readonly OfferService offerService;
-        public RequestController(ControllerDependencies dependencies, RequestService service, OfferService offerSer)
-        : base(dependencies)
-        {
-            Service = service;
-            offerService = offerSer;
-        }
-        [HttpGet]
-        [Route("availableIntervals")]
-        public async Task<List<Interval>> GetAvailableIntervals(Guid id)
-        {
-            return await offerService.GetAvailableIntervals(id);
-        }
-        [HttpGet]
-        [Route("unavailableIntervals")]
-        public async Task<List<Interval>> GetUnavailableIntervals(Guid id)
-        {
-           return await Service.GetUnavailableIntervals(id);
-        }
- 
+        private readonly HttpClient _httpClient;
 
-        [HttpPost]
-        [Route("sendRequest")]
-        public async Task<ActionResult> SendRequest(SendRequestModel model)
+        public RequestController(ControllerDependencies dependencies, IHttpClientFactory httpClientFactory)
+            : base(dependencies)
         {
-            if (model.StartDate >= model.EndDate)
+            _httpClient = httpClientFactory.CreateClient();
+            _httpClient.BaseAddress = new Uri("http://localhost:5000/");
+        }
+
+        [HttpGet("availableIntervals")]
+        public async Task<IActionResult> GetAvailableIntervals(Guid id)
+        {
+            var response = await _httpClient.GetAsync($"api/Offer/AvailableIntervals/{id}");
+            if (!response.IsSuccessStatusCode)
             {
-                ModelState.AddModelError("StartDate", "Your end time must be after your start time!");
-                ModelState.AddModelError("EndDate", "Your end time must be after your start time!");
-                model.AvailableIntervals = await offerService.GetAvailableIntervals(model.OfferId);
-                model.UnavailableIntervals = await Service.GetUnavailableIntervals(model.OfferId);
-                return View(model);
+                return StatusCode((int)response.StatusCode, "Error fetching available intervals.");
             }
 
-            if (model.StartDate < DateTime.Now || model.EndDate < DateTime.Now)
+            var intervals = await response.Content.ReadFromJsonAsync<List<Interval>>();
+            return Ok(intervals);
+        }
+
+        [HttpGet("unavailableIntervals")]
+        public async Task<IActionResult> GetUnavailableIntervals(Guid id)
+        {
+            var response = await _httpClient.GetAsync($"api/Offer/UnavailableIntervals/{id}");
+            if (!response.IsSuccessStatusCode)
             {
-                ModelState.AddModelError("StartDate", "The request should be for an interval in the future!");
-                ModelState.AddModelError("EndDate", "The request should be for an interval in the future!");
-                model.AvailableIntervals = await offerService.GetAvailableIntervals(model.OfferId);
-                model.UnavailableIntervals = await Service.GetUnavailableIntervals(model.OfferId);
-                return View(model);
+                return StatusCode((int)response.StatusCode, "Error fetching unavailable intervals.");
             }
 
-            Interval? availableInterval = await offerService.GetAvailableInterval(model);
+            var intervals = await response.Content.ReadFromJsonAsync<List<Interval>>();
+            return Ok(intervals);
+        }
 
-            if (availableInterval == null)
+        [HttpPost("sendRequest")]
+        public async Task<IActionResult> SendRequest([FromBody] SendRequestModel model, [FromQuery] Guid userId)
+        {
+            var response = await _httpClient.PostAsJsonAsync("api/Request/Add/?userId="+userId, model);
+            if (!response.IsSuccessStatusCode)
             {
-                ModelState.AddModelError("StartDate", "Your interval isn't included in any available interval!");
-                ModelState.AddModelError("EndDate", "Your interval isn't included in any available interval!");
-                model.AvailableIntervals = await offerService.GetAvailableIntervals(model.OfferId);
-                model.UnavailableIntervals = await Service.GetUnavailableIntervals(model.OfferId);
-                return View(model);
+                return StatusCode((int)response.StatusCode, "Error sending request.");
             }
-            var isIntervalValid = await Service.CheckOverlappingIntervals(availableInterval, model);
-            if (isIntervalValid)
+
+            return Ok("Request sent successfully.");
+        }
+
+        [HttpGet("receivedRequests")]
+        public async Task<IActionResult> ViewReceivedRequests(Guid id)
+        {
+            var response = await _httpClient.GetAsync($"api/Request/Received/{id}");
+            if (!response.IsSuccessStatusCode)
             {
-                ModelState.AddModelError("StartDate", "Your request overlaps with another accepted request!");
-                ModelState.AddModelError("EndDate", "Your request overlaps with another accepted request!");
-                model.AvailableIntervals = await offerService.GetAvailableIntervals(model.OfferId);
-                model.UnavailableIntervals = await Service.GetUnavailableIntervals(model.OfferId);
-                return View(model);
+                return StatusCode((int)response.StatusCode, "Error fetching received requests.");
             }
-            await Service.AddRequestToDb(model);
-            return RedirectToAction("GoToOfferDetailsPage", "Offer", new { id = model.OfferId });
+
+            var requests = await response.Content.ReadFromJsonAsync<List<ViewRequestModel>>();
+            return Ok(requests);
         }
 
-        [HttpGet]
-        [Route("receivedRequests")]
-        public async Task<List<ViewRequestModel>> ViewReceivedRequests(Guid id)
+        [HttpGet("sentRequests")]
+        public async Task<IActionResult> ViewSentRequests(Guid id)
         {
-            return await Service.GetReceivedRequests(id);
+            var response = await _httpClient.GetAsync($"api/Request/Sent/{id}");
+            if (!response.IsSuccessStatusCode)
+            {
+                return StatusCode((int)response.StatusCode, "Error fetching sent requests.");
+            }
+
+            var requests = await response.Content.ReadFromJsonAsync<List<ViewRequestModel>>();
+            return Ok(requests);
         }
 
-        [HttpGet]
-        [Route("sentRequests")]
-        public async Task<List<ViewRequestModel>> ViewSentRequests(Guid id)
+        [HttpDelete("unsendRequests")]
+        public async Task<IActionResult> RevokeRequests(Guid id)
         {
-            return await Service.GetSentRequests(id);
+            var response = await _httpClient.DeleteAsync($"api/Request/Delete/{id}");
+            if (!response.IsSuccessStatusCode)
+            {
+                return StatusCode((int)response.StatusCode, "Error revoking request.");
+            }
+
+            return Ok("Request revoked successfully.");
         }
 
-        [HttpDelete]
-        [Route("unsendRequests")]
-        public async Task<bool> RevokeRequests(Guid id)
+        [HttpPost("acceptRequest")]
+        public async Task<IActionResult> AcceptRequest(Guid id)
         {
-            await Service.DeleteSentRequests(id);
-            return true;
+            var response = await _httpClient.PutAsJsonAsync<IActionResult>($"api/Request/Update/{id}?state=Accepted", null);
+            if (!response.IsSuccessStatusCode)
+            {
+                return StatusCode((int)response.StatusCode, "Error accepting request.");
+            }
+
+            return Ok("Request accepted successfully.");
         }
 
-        [HttpPost]
-        [Route("acceptRequest")]
-        public async Task AcceptRequest(Guid id) => await Service.UpdateRequest(id, "Accepted");
-        [HttpPost]
-        [Route("refuseRequest")]
-        public async Task RefuseRequest(Guid id) => await Service.UpdateRequest(id, "Refused");
-        [HttpPost]
-        [Route("deleteRequest")]
-        public async Task DeleteRequest(Guid id) => await Service.DeleteRequest(id);
+        [HttpPost("refuseRequest")]
+        public async Task<IActionResult> RefuseRequest(Guid id)
+        {
+            var response = await _httpClient.PutAsJsonAsync<IActionResult>($"api/Request/Update/{id}?state=Refused", null);
+            if (!response.IsSuccessStatusCode)
+            {
+                return StatusCode((int)response.StatusCode, "Error refusing request.");
+            }
+
+            return Ok("Request refused successfully.");
+        }
+
+        [HttpPost("deleteRequest")]
+        public async Task<IActionResult> DeleteRequest(Guid id)
+        {
+            var response = await _httpClient.DeleteAsync($"api/Request/Delete/{id}");
+            if (!response.IsSuccessStatusCode)
+            {
+                return StatusCode((int)response.StatusCode, "Error deleting request.");
+            }
+
+            return Ok("Request deleted successfully.");
+        }
     }
 }

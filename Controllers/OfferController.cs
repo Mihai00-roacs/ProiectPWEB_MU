@@ -1,179 +1,230 @@
-﻿using BusinessLogic.Services;
-using BusinessLogic;
-using DataAccess.Models;
+﻿using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Authorization;
+using DataAccess.Models;
+using Microsoft.AspNetCore.Mvc.Rendering;
+using NuGet.Protocol;
 
 namespace ProiectPWEB_MU.Controllers
 {
     [Route("offers")]
     [ApiController]
-    [Authorize]
     [EnableCors("ReactPolicy")]
-    public class OfferController : BaseController
+    public class OfferController : ControllerBase
     {
-        private readonly OfferService Service;
-        private readonly RequestService requestService;
-        public OfferController(ControllerDependencies dependencies, OfferService service, RequestService requestSer)
-        : base(dependencies)
+        private readonly HttpClient _offersHttpClient;
+        private readonly HttpClient _requestsHttpClient;
+
+        public OfferController(IHttpClientFactory httpClientFactory)
         {
-            Service = service;
-            requestService = requestSer;
+            _offersHttpClient = httpClientFactory.CreateClient();
+            _offersHttpClient.BaseAddress = new Uri("http://localhost:5000/api/Offer/"); // API-ul DataBaseInteraction
+            _requestsHttpClient = httpClientFactory.CreateClient();
+            _requestsHttpClient.BaseAddress = new Uri("http://localhost:5000/api/Request/"); // API-ul DataBaseInteraction
         }
 
-        [HttpPost]
-        [Route("AddOffer")]
-        public IActionResult AddOffer(AddOfferModel model)
+        [HttpPost("addpoints")]
+        public async Task<IActionResult> AddOffer(AddOfferModel model)
         {
-            TempData.Put("carModel", model);
-            //  model.OfferId=await Service.AddNewOffer(model);
-
-            return RedirectToAction("AddOfferPoints");
-        }
-
-        [HttpPost]
-        [Route("addpoints")]
-        public Guid AddOfferPoints(AddOfferModelWithPoints addOfferModelWithPoints)
-        {
-            var OfferId = Service.AddNewOffer(addOfferModelWithPoints);
-            return OfferId;
-        }
-        public JsonResult ValidateDateEqualOrGreater(DateTime date) => date >= DateTime.Now ? Json(true) : Json(false);
-
-        [HttpGet]
-        [Route("getOfferById")]
-        public async Task<OfferDetailsModel> GetOfferByIdAsync(Guid offerId)
-        {
-            return await Service.GetOfferById(offerId);
-        }
-       /* public async Task<RedirectToActionResult> DeleteOffer(Guid id)
-       {
-           var requests = await requestService.GetRequests(id);
-           bool isAnyRequestAccepted = requestService.IsAnyRequestAccepted(requests);
-           if (isAnyRequestAccepted)
-           {
-
-               TempData["message"] = "Can't delete offer because there are still accepeted requests tied to it!";
-               return RedirectToAction("GoToOfferDetailsPage", new { id });
-           }
-
-           await Service.DeleteOffer(id, requests);
-           return RedirectToAction("Index", "Home");
-       }*/
-        [HttpPost]
-        [Route("addOfferIntervals")]
-        public async Task AddOfferIntervals(AddOfferIntervalDTO addOfferIntervalDTO)
-        {
-            if (addOfferIntervalDTO.StartDate < DateTime.Now)
+            var response = await _offersHttpClient.PostAsJsonAsync("Add", model);
+            if (response.IsSuccessStatusCode)
             {
-                ModelState.AddModelError("StartDate", "StartDate is in Past. Please select actual date");
-                return;
+                var offerId = await response.Content.ReadFromJsonAsync<Guid>();
+                return Ok(offerId);
             }
-            if (addOfferIntervalDTO.EndDate < DateTime.Now)
-            {
-                ModelState.AddModelError("EndDate", "EndDate is in Past. Please select actual date");
-                return;
-            }
-            if (addOfferIntervalDTO.StartDate > addOfferIntervalDTO.EndDate)
-            {
-                ModelState.AddModelError("StartDate", "StartDate is greater than EndDate");
-                ModelState.AddModelError("EndDate", "EndDate is lesser than StartDate");
-                return;
-            }
-            await Service.AddIntervalToDatabase(addOfferIntervalDTO.OfferId, addOfferIntervalDTO.StartDate, addOfferIntervalDTO.EndDate);
-        }
 
-        [HttpGet]
-        [Route("GetOffersLength")]
-        public int GetOffersSize()
-        {
-            var offers =  Service.GetOffersSize();
-            return offers;
-        }
-        [HttpGet]
-        [Route("GetOffers")]
-        public async Task<List<OfferDetailsModel>> GetOffersPerPage(int page, int size)
-        {
-            var offers = await Service.GenerateOffersPerPage(page, size);
-            return offers;
+            return StatusCode((int)response.StatusCode, "Error adding offer.");
         }
         [HttpGet]
         [Route("GetSelfOffers")]
-        public async Task<List<OfferDetailsModel>> GetSelfOffersPerPage(int page, int size)
+        public async Task<ActionResult> GetSelfOffersPerPage(Guid userId)
         {
-            return await Service.GetMyOffers(page,size);
+            var response = await _offersHttpClient.GetAsync($"MyOffers/{userId}?page=0&size=20");
+            if (response.IsSuccessStatusCode)
+            {
+                var colors = await response.Content.ReadFromJsonAsync<List<OfferDetailsModel>>();
+                return Ok(colors);
+            }
+
+            return StatusCode((int)response.StatusCode, "Error fetching colors.");
         }
         [HttpGet]
         [Route("GetSelfOffersLength")]
-        public int GetSelfOffersSize()
+        public async Task<ActionResult> GetSelfOffersSize(Guid userId)
         {
-            var offers = Service.GetSelfOffersSize();
-            return offers;
+            var response = await _offersHttpClient.GetAsync($"MyOffers/{userId}?page=0&size=20");
+            if (response.IsSuccessStatusCode)
+            {
+                var colors = await response.Content.ReadFromJsonAsync<List<OfferDetailsModel>>();
+                return Ok(colors.Count);
+            }
+
+            return StatusCode((int)response.StatusCode, "Error fetching colors.");
         }
-
-        [HttpPost]
-        public async Task<IActionResult> EditOffer(AddOfferModel model)
+        [HttpGet("getOfferById")]
+        public async Task<IActionResult> GetOfferByIdAsync(Guid offerId)
         {
+            var response = await _offersHttpClient.GetAsync($"{offerId}");
+            if (response.IsSuccessStatusCode)
+            {
+                var offer = await response.Content.ReadFromJsonAsync<OfferDetailsModel>();
+                return Ok(offer);
+            }
 
-            await Service.EditOffer(model);
-
-            return RedirectToAction("GoToOfferDetailsPage", new { controller = "Offer", id = model.OfferId });
+            return StatusCode((int)response.StatusCode, "Error fetching offer.");
         }
         [HttpGet]
         [Route("GetBorrowedCars")]
-        public async Task<List<OfferDetailsModel>> GetBorrowedCarsOffers()
-        {
-            var requests = await requestService.GetCurrUserRequests();
-            return await Service.GetSentOffers(requests);
+        public async Task<ActionResult> GetBorrowedCarsOffers(Guid userId){
+            
+            var response = await _requestsHttpClient.GetAsync($"User/{userId}");
+            if (!response.IsSuccessStatusCode) return StatusCode((int)response.StatusCode, "Error fetching colors.");
+            var list = await response.Content.ReadFromJsonAsync<List<ViewRequestModel>>();
+            var sentOffers = new HashSet<OfferDetailsModel>();
+            foreach (var model in list)
+            {
+                var response2 = await _offersHttpClient.GetAsync($"{model.OfferId}");
+                if (!response2.IsSuccessStatusCode) continue;
+                var offer = await response2.Content.ReadFromJsonAsync<OfferDetailsModel>();
+                var offerModel = new OfferDetailsModel()
+                {
+                    OfferId = offer.OfferId,
+                    Milleage   = offer.Milleage,
+                    Year = offer.Year,
+                    ColorName = offer.ColorName,
+                    OwnerName = offer.OwnerName,
+                    ProducerName = offer.ProducerName,
+                    SizeName = offer.SizeName,
+                    TypeName = offer.TypeName,
+                    XCoordinate = offer.XCoordinate,
+                    YCoordinate = offer.YCoordinate,
+                    Description = offer.Description
+                };
+                sentOffers.Add(offerModel);
+            }
+            return Ok(sentOffers);
+
         }
         [HttpGet]
         [Route("GetBorrowedCarsLength")]
-        public async Task<int> GetBorrowedCarsOffersSizeAsync()
+        public async Task<ActionResult> GetBorrowedCarsOffersSizeAsync(Guid userId)
         {
-            var requests = await requestService.GetCurrUserRequests();
-            var offers = await Service.GetBorrowedCarsOffersSizeAsync(requests);
-            return offers;
+            var response = await _requestsHttpClient.GetAsync($"User/{userId}");
+            if (!response.IsSuccessStatusCode) return StatusCode((int)response.StatusCode, "Error fetching colors.");
+            var list = await response.Content.ReadFromJsonAsync<List<ViewRequestModel>>();
+            var sentOffers = new HashSet<OfferDetailsModel>();
+            foreach (var model in list)
+            {
+                var response2 = await _offersHttpClient.GetAsync($"{model.OfferId}");
+                if (!response2.IsSuccessStatusCode) continue;
+                var offer = await response.Content.ReadFromJsonAsync<OfferDetailsModel>();
+                var offerModel = new OfferDetailsModel()
+                {
+                    Milleage   = offer.Milleage,
+                    Year = offer.Year,
+                    ColorName = offer.ColorName,
+                    OwnerName = offer.OwnerName,
+                    ProducerName = offer.ProducerName,
+                    SizeName = offer.SizeName,
+                    TypeName = offer.TypeName,
+                    XCoordinate = offer.XCoordinate,
+                    YCoordinate = offer.YCoordinate
+                };
+                sentOffers.Add(offerModel);
+            }
+            return Ok(sentOffers.Count);
+        }
+        [HttpGet]
+        [Route("GetOffersLength")]
+        public async Task<ActionResult> GetOffersSize(Guid userId)
+        {
+            var response = await _offersHttpClient.GetAsync($"OtherOffers/{userId}?page=0&size=20");
+            if (response.IsSuccessStatusCode)
+            {
+                var colors = await response.Content.ReadFromJsonAsync<List<OfferDetailsModel>>();
+                return Ok(colors.Count);
+            }
+
+            return StatusCode((int)response.StatusCode, "Error fetching colors.");
+        }
+        [HttpGet]
+        [Route("GetOffers")]
+        public async Task<ActionResult> GetOffersPerPage(Guid userId)
+        {
+            var response = await _offersHttpClient.GetAsync($"OtherOffers/{userId}?page=0&size=20");
+            if (response.IsSuccessStatusCode)
+            {
+                var colors = await response.Content.ReadFromJsonAsync<List<OfferDetailsModel>>();
+                return Ok(colors);
+            }
+
+            return StatusCode((int)response.StatusCode, "Error fetching colors.");
+        }
+        [HttpPost("addOfferIntervals")]
+        public async Task<IActionResult> AddOfferIntervals(AddOfferIntervalsModel model)
+        {
+            if (model.StartDate < DateTime.Now || model.StartDate > model.EndDate)
+            {
+                return BadRequest("Invalid date range.");
+            }
+
+            var response = await _offersHttpClient.PostAsJsonAsync("AddInterval", model);
+            return response.IsSuccessStatusCode
+                ? Ok("Interval added successfully.")
+                : StatusCode((int)response.StatusCode, "Error adding interval.");
         }
 
-        [HttpGet]
-        [Route("colors")]
-        public async Task<List<SelectListItem>> GetColors(string search)
+        [HttpGet("colors")]
+        public async Task<IActionResult> GetColors(string search)
         {
-            if (search != null)
+            var response = await _offersHttpClient.GetAsync($"Colors?search={search}");
+            if (response.IsSuccessStatusCode)
             {
-                return await Service.AddColorsForAddOffer(search);
+                var colors = await response.Content.ReadFromJsonAsync<List<SelectListItem>>();
+                return Ok(colors);
             }
-            return new List<SelectListItem>();
-        }
-     
-        [HttpGet]
-        [Route("producers")]
-        public async Task<List<SelectListItem>> GetProducers(string search)
-        {
-            if (search != null)
-            {
-                return await Service.AddProducersForAddOffer(search);
-            }
-            return new List<SelectListItem>();
-        }
-        [HttpGet]
-        [Route("types")]
-        public async Task<List<SelectListItem>> GetTypes(string search)
-        {
-            if (search != null)
-            {
-                return await Service.AddTypesForAddOffer(search);
-            }
-            return new List<SelectListItem>();
+
+            return StatusCode((int)response.StatusCode, "Error fetching colors.");
         }
 
-        [HttpGet]
-        [Route("sizes")]
-        public async Task<List<SelectListItem>> GetSizes()
+        [HttpGet("producers")]
+        public async Task<IActionResult> GetProducers(string search)
         {
-            return await Service.AddSizesForAddOffer();
+            var response = await _offersHttpClient.GetAsync($"Producers?search={search}");
+            if (response.IsSuccessStatusCode)
+            {
+                var producers = await response.Content.ReadFromJsonAsync<List<SelectListItem>>();
+                return Ok(producers);
+            }
+
+            return StatusCode((int)response.StatusCode, "Error fetching producers.");
+        }
+
+        [HttpGet("types")]
+        public async Task<IActionResult> GetTypes(string search)
+        {
+            var response = await _offersHttpClient.GetAsync($"Types?search={search}");
+            if (response.IsSuccessStatusCode)
+            {
+                var types = await response.Content.ReadFromJsonAsync<List<SelectListItem>>();
+                return Ok(types);
+            }
+
+            return StatusCode((int)response.StatusCode, "Error fetching types.");
+        }
+
+        [HttpGet("sizes")]
+        public async Task<IActionResult> GetSizes()
+        {
+            var response = await _offersHttpClient.GetAsync("Sizes");
+            if (response.IsSuccessStatusCode)
+            {
+                var sizes = await response.Content.ReadFromJsonAsync<List<SelectListItem>>();
+                return Ok(sizes);
+            }
+
+            return StatusCode((int)response.StatusCode, "Error fetching sizes.");
         }
     }
 }

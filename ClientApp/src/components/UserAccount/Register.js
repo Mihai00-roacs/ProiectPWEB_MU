@@ -1,4 +1,4 @@
-﻿import React, {useEffect, useMemo, useState} from "react";
+﻿import React, {useEffect, useState} from "react";
 import {Button, Col, Form, FormGroup} from 'reactstrap';
 import IconButton from '@mui/material/IconButton';
 import Visibility from '@mui/icons-material/Visibility';
@@ -8,7 +8,6 @@ import {FormikProvider, useFormik} from 'formik';
 import * as yup from 'yup';
 import {FormControl, InputAdornment, InputLabel, ListSubheader, MenuItem, Select, TextField} from "@mui/material";
 import {useNavigate} from "react-router-dom";
-import debounce from 'lodash/debounce';
 import TextInputLiveFeedback from "../utils/TextInputLiveFeedback";
 
 
@@ -16,112 +15,128 @@ import TextInputLiveFeedback from "../utils/TextInputLiveFeedback";
 const validationSchema = yup.object({
     email: yup
         .string()
-        .email('Invalid email format.')
-        .required('Email is required')
-        .test('checkEmailUnique', 'This email is already registered',
-            function (value) {
-                return fetch('https://localhost:44417/useraccount/emailAvailability?email=' + value).then(async res => {
-                    return await res.json();
-                })
+        .email("Invalid email format.")
+        .required("Email is required")
+        .test(
+            "checkEmailUnique",
+            "This email is already registered",
+            async function (value) {
+                const res = await fetch(
+                    `${process.env.REACT_APP_AUTH_API_URL}/emailAvailability?email=${value}`
+                );
+                return res.ok && (await res.json());
             }
         ),
     password: yup
         .string()
-        .min(8, 'Password should be of minimum 8 characters length')
-        .matches(/^(?=.*[0-9])(?=.*[!@#$%^&*])(?=.*[A-Z])[0-9a-zA-Z!@#$%^&*0-9]{10,}$/, "The Password must have at least one noumeric, one special character, one uppercase letter and have a length of at least 10.")
-        .required('Password is required'),
+        .min(8, "Password should be of minimum 8 characters length")
+        .matches(
+            /^(?=.*[0-9])(?=.*[!@#$%^&*])(?=.*[A-Z])[0-9a-zA-Z!@#$%^&*]{10,}$/,
+            "The Password must have at least one numeric, one special character, one uppercase letter, and be at least 10 characters long."
+        )
+        .required("Password is required"),
     confirmPassword: yup
         .string()
-        .when('password', (password, schema) => {
+        .when("password", (password, schema) => {
             return schema.test({
-                test: confirmPassword => password[0] === confirmPassword,
-                message: "The passwords must match"
-            })
+                test: (confirmPassword) => password[0] === confirmPassword,
+                message: "The passwords must match",
+            });
         }),
     firstName: yup
         .string()
-        .matches(/^[a-zA-Z]*( [a-zA-Z]+)*$/, "Given names must have letters and be delimited by only one space.")
-        .required(),
+        .matches(/^[a-zA-Z]*( [a-zA-Z]+)*$/, "First name must contain only letters.")
+        .required("First name is required"),
     lastName: yup
         .string()
-        .matches(/^[a-zA-Z]*$/, "Last name must have only letters.")
-        .required(),
+        .matches(/^[a-zA-Z]*$/, "Last name must contain only letters.")
+        .required("Last name is required"),
     userName: yup
         .string()
-        .min(5, "Username must be of at leat 5 characters")
-        .matches(/^[a-zA-Z0-9]*$/, "The username must not contain special characters")
-        .test('checkUserNameUnique', 'This username is already registered',
-            function (value) {
-                return fetch('https://localhost:44417/useraccount/userAvailability?userName=' + value).then(async res => {
-                    return await res.json();
-                })
+        .min(5, "Username must be at least 5 characters long")
+        .matches(/^[a-zA-Z0-9]*$/, "Username must not contain special characters.")
+        .test(
+            "checkUserNameUnique",
+            "This username is already registered",
+            async function (value) {
+                const res = await fetch(
+                    `${process.env.REACT_APP_AUTH_API_URL}/userAvailability?userName=${value}`
+                );
+                return res.ok && (await res.json());
             }
         )
-        .required(),
+        .required("Username is required"),
     phoneNumber: yup
         .string()
-        .matches(/^[0-9]+$/, "This is a phone number. Only digits!")
-        .required()
+        .matches(/^[0-9]+$/, "Phone number must contain only digits.")
+        .required("Phone number is required"),
 });
 
 function Register() {
-    const [cityId, setCity] = React.useState('');
-    const [showPassword, setShowPassword] = React.useState(false);
+    const [cityId, setCity] = useState("");
+    const [showPassword, setShowPassword] = useState(false);
     const [searchText, setSearchText] = useState("");
-    const getCities = async (search) => {
-        if (search != "") {
-            let citiesData = await fetch('https://localhost:44417/useraccount/GetCities?search=' + search);
-            return await citiesData.json();
-        }
-    }
-    const [displayCities, setdisplayCities] = useState([])
-    useEffect(() => {
-        async function fetchData() {
-            let cities = await getCities(searchText);
-            if (cities != undefined) {
-                cities = cities.map(result => ({
-                    value: result.value,
-                    text: result.text
-                }));
-                setdisplayCities(cities);
-            }
-        }
+    const [displayCities, setDisplayCities] = useState([]);
 
-        fetchData();
-    }, [searchText]);
+    const navigate = useNavigate();
 
     const handleClickShowPassword = () => setShowPassword((show) => !show);
-
 
     const handleMouseDownPassword = (event) => {
         event.preventDefault();
     };
+
     const handleChange = (event) => {
         setCity(event.target.value);
     };
-    const navigate = useNavigate();
+
+    const getCities = async (search) => {
+        if (search !== "") {
+            const res = await fetch(
+                `${process.env.REACT_APP_AUTH_API_URL}/GetCities?search=${search}`
+            );
+            return await res.json();
+        }
+    };
+
+    useEffect(() => {
+        async function fetchData() {
+            const cities = await getCities(searchText);
+            if (cities) {
+                setDisplayCities(
+                    cities.map((result) => ({
+                        value: result.value,
+                        text: result.text,
+                    }))
+                );
+            }
+        }
+        fetchData();
+    }, [searchText]);
+
     const formik = useFormik({
         initialValues: {
-            email: '',
-            password: '',
-            confirmPassword: '',
-            firstName: '',
-            lastName: '',
-            userName: '',
-            phoneNumber: ''
+            email: "",
+            password: "",
+            confirmPassword: "",
+            firstName: "",
+            lastName: "",
+            userName: "",
+            phoneNumber: "",
         },
         validationSchema: validationSchema,
         validateOnChange: false,
         validateOnMount: true,
-        onSubmit: (values) => {
-            fetch('https://localhost:44417/useraccount/Register', {
-                method: 'POST',
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(
-                    {
+        onSubmit: async (values) => {
+            const res = await fetch(
+                `${process.env.REACT_APP_AUTH_API_URL}/Register`,
+                {
+                    method: "POST",
+                    headers: {
+                        Accept: "application/json",
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
                         Email: values.email,
                         Password: values.password,
                         ConfirmPassword: values.confirmPassword,
@@ -129,28 +144,15 @@ function Register() {
                         LastName: values.lastName,
                         UserName: values.userName,
                         CityId: cityId,
-                        PhoneNumber: values.phoneNumber
-                    }
-                )
-            }).then(async res => {
-                res = await res.json();
-                if(res)
-                    navigate("/home")
-            });
+                        PhoneNumber: values.phoneNumber,
+                    }),
+                }
+            );
+            if (res.ok) {
+                navigate("/home");
+            }
         },
     });
-    const debouncedValidate = useMemo(
-        () => debounce(formik.validateForm, 500),
-        [formik.validateForm],
-    );
-
-    useEffect(
-        () => {
-            console.log('calling deboucedValidate');
-            debouncedValidate(formik.values);
-        },
-        [formik.values, debouncedValidate],
-    );
     return (
         <>
             <h2 style={{textAlign: 'center'}}>Welcome to CarSharing!</h2>

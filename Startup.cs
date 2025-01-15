@@ -1,5 +1,6 @@
 ﻿using AutoMapper;
 using DataAccess;
+using DataAccess.EntityFramework;
 using Microsoft.EntityFrameworkCore;
 
 namespace ProiectPWEB_MU
@@ -30,7 +31,7 @@ namespace ProiectPWEB_MU
                 options.UseSqlServer(Configuration["ConnectionStrings:DefaultConnection"]);
             });
             services.AddScoped<UnitOfWork>();
-
+            services.AddHttpClient();
             services.AddSocializRCurrentUser();
 
             services.AddPresentation();
